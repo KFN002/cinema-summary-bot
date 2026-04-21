@@ -31,14 +31,26 @@ class OMDbSourceAdapter:
 
         plot = str(payload.get("Plot", "")).strip()
         if not plot or plot == "N/A":
+            plot = ""
+
+        details = [
+            f"Plot: {plot}" if plot else "",
+            f"Genre: {payload.get('Genre')}" if payload.get("Genre") and payload.get("Genre") != "N/A" else "",
+            f"Director: {payload.get('Director')}" if payload.get("Director") and payload.get("Director") != "N/A" else "",
+            f"Actors: {payload.get('Actors')}" if payload.get("Actors") and payload.get("Actors") != "N/A" else "",
+            f"Awards: {payload.get('Awards')}" if payload.get("Awards") and payload.get("Awards") != "N/A" else "",
+        ]
+        evidence_text = "\n".join(part for part in details if part).strip()
+        if not evidence_text:
             return []
 
-        spoiler = "ending" in plot.lower() or "dies" in plot.lower() or "twist" in plot.lower()
+        lowered = evidence_text.lower()
+        spoiler = any(marker in lowered for marker in ("ending", "dies", "twist", "killer", "identity"))
         return [
             EvidenceChunk(
                 source_name="OMDb",
                 source_url=f"https://www.omdbapi.com/?i={payload.get('imdbID','')}",
-                text=plot,
+                text=evidence_text,
                 spoiler=spoiler,
             )
         ]

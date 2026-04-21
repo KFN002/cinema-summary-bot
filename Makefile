@@ -1,18 +1,19 @@
-PYTHON ?= python
+PYTHON ?= python3
 
 .PHONY: install run-api run-bot test compile clean
 
 install:
-	$(PYTHON) -m pip install -e .[dev]
+	$(PYTHON) -m pip install -r requirements.txt
+	$(PYTHON) -m pip install -e .
 
 run-api:
-	uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+	$(PYTHON) -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 run-bot:
 	$(PYTHON) -m bot.telegram_bot
 
 test:
-	pytest -q
+	$(PYTHON) -m pytest -q
 
 compile:
 	$(PYTHON) -m compileall app bot tests

@@ -29,6 +29,14 @@ class UserQuery(BaseModel):
         "interpretations",
     ] = "no_spoilers"
     allow_spoilers: bool = False
+    watched: bool = False
+    detail_level: Literal["standard", "expanded"] = "standard"
+    focus_section: Literal[
+        "summary",
+        "ending_explained",
+        "hidden_details",
+        "interpretations",
+    ] | None = None
 
 
 class EvidenceChunk(BaseModel):
@@ -47,7 +55,6 @@ class MovieExplanation(BaseModel):
     interpretations: str
     spoiler_level: Literal["none", "light", "full"]
     evidence: list[EvidenceChunk]
-    from_cache: bool = False
 
 
 class ExplainResponse(BaseModel):

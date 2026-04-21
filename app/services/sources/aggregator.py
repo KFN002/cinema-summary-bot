@@ -10,10 +10,17 @@ class SourceAggregator:
 
     async def fetch_movie_evidence(self, title: str, year: int | None = None) -> list[EvidenceChunk]:
         combined: list[EvidenceChunk] = []
+        seen: set[tuple[str, str]] = set()
         for adapter in self.adapters:
             try:
-                combined.extend(await adapter.fetch_movie_evidence(title, year))
+                chunks = await adapter.fetch_movie_evidence(title, year)
             except Exception:
                 # MVP behavior: keep pipeline alive when one source fails.
                 continue
+            for chunk in chunks:
+                fingerprint = (chunk.source_name, chunk.text.strip())
+                if fingerprint in seen:
+                    continue
+                seen.add(fingerprint)
+                combined.append(chunk)
         return combined

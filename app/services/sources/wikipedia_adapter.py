@@ -11,6 +11,8 @@ from app.models.schemas import EvidenceChunk
 class WikipediaSourceAdapter:
     name = "wikipedia"
     BASE_URL = "https://en.wikipedia.org/w/api.php"
+    SUMMARY_URL = "https://en.wikipedia.org/api/rest_v1/page/summary"
+    USER_AGENT = "cinema-summary-bot/0.2 (movie evidence fetcher)"
 
     async def fetch_movie_evidence(self, title: str, year: int | None = None) -> list[EvidenceChunk]:
         article_title = await self._resolve_title(title, year)
@@ -50,12 +52,23 @@ class WikipediaSourceAdapter:
             "namespace": 0,
             "format": "json",
         }
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            response = await client.get(self.BASE_URL, params=params)
-            response.raise_for_status()
-            payload = response.json()
+        try:
+            async with httpx.AsyncClient(timeout=8.0, headers={"User-Agent": self.USER_AGENT}) as client:
+                response = await client.get(self.BASE_URL, params=params)
+                response.raise_for_status()
+                payload = response.json()
+        except Exception:
+            candidates = self._title_candidates(title, year)
+            for candidate in candidates:
+                if await self._fetch_summary_extract(candidate):
+                    return candidate
+            return None
 
         if len(payload) < 2 or not payload[1]:
+            candidates = self._title_candidates(title, year)
+            for candidate in candidates:
+                if await self._fetch_summary_extract(candidate):
+                    return candidate
             return None
         return str(payload[1][0])
 
@@ -68,17 +81,38 @@ class WikipediaSourceAdapter:
             "titles": title,
             "format": "json",
         }
-        async with httpx.AsyncClient(timeout=12.0) as client:
+        async with httpx.AsyncClient(timeout=12.0, headers={"User-Agent": self.USER_AGENT}) as client:
             response = await client.get(self.BASE_URL, params=params)
             response.raise_for_status()
             payload: dict[str, Any] = response.json()
 
         pages = payload.get("query", {}).get("pages", {})
         if not pages:
-            return None
+            return await self._fetch_summary_extract(title)
         page = next(iter(pages.values()))
         extract = page.get("extract", "")
-        return str(extract) if extract else None
+        if extract:
+            return str(extract)
+        return await self._fetch_summary_extract(title)
+
+    async def _fetch_summary_extract(self, title: str) -> str | None:
+        safe_title = title.replace(" ", "_")
+        async with httpx.AsyncClient(timeout=12.0, headers={"User-Agent": self.USER_AGENT}) as client:
+            response = await client.get(f"{self.SUMMARY_URL}/{safe_title}")
+            if response.status_code >= 400:
+                return None
+            payload: dict[str, Any] = response.json()
+
+        extract = payload.get("extract")
+        return str(extract).strip() if extract else None
+
+    @staticmethod
+    def _title_candidates(title: str, year: int | None) -> list[str]:
+        candidates = [title]
+        if year:
+            candidates.append(f"{title} ({year} film)")
+        candidates.append(f"{title} (film)")
+        return candidates
 
     @staticmethod
     def _split_spoilers(extract: str) -> tuple[str, str]:

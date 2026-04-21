@@ -16,5 +16,10 @@ def build_pipeline() -> ExplainPipeline:
         TMDbSourceAdapter(settings.tmdb_api_token),
     ]
     aggregator = SourceAggregator(adapters=adapters)
-    cache = CacheRepository(settings.db_path)
-    return ExplainPipeline(cache=cache, source_aggregator=aggregator)
+    cache = None
+    if settings.cache_enabled:
+        cache = CacheRepository(
+            db_path=settings.cache_db_path,
+            ttl_seconds=settings.cache_ttl_seconds,
+        )
+    return ExplainPipeline(source_aggregator=aggregator, cache=cache)

@@ -31,19 +31,36 @@ class TMDbSourceAdapter:
                 return []
 
             movie_id = results[0]["id"]
-            movie_response = await client.get(f"https://api.themoviedb.org/3/movie/{movie_id}")
+            movie_response = await client.get(
+                f"https://api.themoviedb.org/3/movie/{movie_id}",
+                params={"append_to_response": "credits"},
+            )
             movie_response.raise_for_status()
             movie_payload: dict[str, Any] = movie_response.json()
 
         overview = str(movie_payload.get("overview", "")).strip()
-        if not overview:
+        tagline = str(movie_payload.get("tagline", "")).strip()
+        genres = ", ".join(genre["name"] for genre in movie_payload.get("genres", []) if genre.get("name"))
+        cast = ", ".join(
+            member.get("name", "")
+            for member in movie_payload.get("credits", {}).get("cast", [])[:5]
+            if member.get("name")
+        )
+        details = [
+            f"Overview: {overview}" if overview else "",
+            f"Tagline: {tagline}" if tagline else "",
+            f"Genres: {genres}" if genres else "",
+            f"Top cast: {cast}" if cast else "",
+        ]
+        evidence_text = "\n".join(part for part in details if part).strip()
+        if not evidence_text:
             return []
 
         return [
             EvidenceChunk(
                 source_name="TMDb",
                 source_url=f"https://www.themoviedb.org/movie/{movie_id}",
-                text=overview,
+                text=evidence_text,
                 spoiler=False,
             )
         ]

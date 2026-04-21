@@ -1,32 +1,23 @@
-from app.models.schemas import EvidenceChunk, MovieExplanation
+from app.models.schemas import MovieExplanation
 from app.services.cache.repository import CacheRepository
 
 
 def test_cache_roundtrip(tmp_path):
-    db_file = tmp_path / "cache.db"
-    repo = CacheRepository(str(db_file))
-
+    repo = CacheRepository(str(tmp_path / "cache.db"), ttl_seconds=60)
     explanation = MovieExplanation(
         canonical_title="Inception",
         year=2010,
-        summary="A thief enters dreams.",
-        ending_explained="The ending is ambiguous.",
-        hidden_details="Totem behavior clues.",
-        interpretations="Reality vs projection.",
-        spoiler_level="light",
-        evidence=[
-            EvidenceChunk(
-                source_name="Wikipedia",
-                source_url="https://example.com",
-                text="Evidence",
-                spoiler=False,
-            )
-        ],
+        summary="summary",
+        ending_explained="ending",
+        hidden_details="details",
+        interpretations="interpretations",
+        spoiler_level="full",
+        evidence=[],
     )
 
-    repo.upsert_summary("tt1375666", explanation)
-    cached = repo.get_summary("tt1375666")
+    repo.put_explanation("key", explanation)
+    loaded = repo.get_explanation("key")
 
-    assert cached is not None
-    assert cached.from_cache is True
-    assert cached.canonical_title == "Inception"
+    assert loaded is not None
+    assert loaded.canonical_title == "Inception"
+    assert loaded.ending_explained == "ending"
